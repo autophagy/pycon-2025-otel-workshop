@@ -1,0 +1,44 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "*"
+
+exporters:
+  otlp/jaeger:
+    endpoint: "http://jaeger:4317"
+    tls:
+      insecure: true
+
+  otlp/tempo:
+    endpoint: "http://tempo:4317"
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp/jaeger, otlp/tempo]
+
+    metrics:
+      receivers: [otlp]
+      processors: []
+      exporters: [prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlphttp/loki]
