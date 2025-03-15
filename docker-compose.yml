@@ -1,4 +1,17 @@
 services:
+
+  service-a:
+    build:
+      context: ./service-a
+    ports:
+      - "9998:9999"
+
+  service-b:
+    build:
+      context: ./service-b
+    ports:
+      - "9999:9999"
+
   otel-collector:
     image: otel/opentelemetry-collector:latest
     container_name: otel-collector
