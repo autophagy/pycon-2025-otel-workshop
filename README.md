@@ -6,7 +6,7 @@ For this workshop, we will use a suite of backend services for telemetry. These 
 
 - [Prometheus](https://prometheus.io/) for metrics.
 - [Loki](https://grafana.com/oss/loki/) for logging.
-- [Jaeger](https://www.jaegertracing.io/) and [Tempo](https://grafana.com/docs/tempo/latest/)
+- [Jaeger](https://www.jaegertracing.io/) and [Tempo](https://grafana.com/docs/tempo/latest/) for tracing.
 
 To start these backends using [Docker Compose](https://docs.docker.com/compose/), run the following:
 
