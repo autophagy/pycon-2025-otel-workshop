@@ -1,0 +1,18 @@
+apiversion: 1
+datasources:
+  - name: Prometheus (Metrics)
+    type: prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+
+  - name: Loki (Logs)
+    type: loki
+    url: http://loki:3100
+    access: proxy
+
+  - name: Tempo (Traces)
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    basicAuth: false

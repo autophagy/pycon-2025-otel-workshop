@@ -1,0 +1,58 @@
+
+services:
+
+  geolocator-service:
+    build:
+      context: ./backend/geolocator-service
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/geolocator-service
+    ports:
+      - "5000"
+    stop_signal: SIGINT
+
+  iss-distance-service:
+    build:
+      context: ./backend/iss-distance-service
+    environment:
+      # set up the otel collector exporter endpoint
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/iss-distance-service
+    ports:
+      - "5000"
+    stop_signal: SIGINT
+
+  gateway:
+    build:
+      context: ./backend/gateway
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/gateway
+    ports:
+      - "5000"
+    environment:
+      - GEOLOCATOR_SERVICE_URL=http://geolocator-service:5000
+      - ISS_DISTANCE_SERVICE_URL=http://iss-distance-service:5000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    stop_signal: SIGINT
+
+  frontend:
+    build:
+      context: ./frontend
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend
+    ports:
+      - "5000:5000"
+    environment:
+      - GATEWAY_URL=http://gateway:5000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    stop_signal: SIGINT
