@@ -1,5 +1,26 @@
 #  Instrumenting Python Applications with OpenTelemetry
 
+## Objective
+
+- Instrument an existing service with logs, metrics and traces using OpenTelemetry
+- Send OpenTelemetry data to a set of telemetry backends
+- Use UIs to explore and make sense of observability data
+
+## Agenda
+
+1. Introduction to Observability and OpenTelemetry
+1. Tour of the Application and Tooling
+1. Instrument the application
+  1. Logging
+  1. Metrics
+  1. Tracing
+1. Tie everything together
+
+## Prerequisites
+
+- Python 3.X
+- Docker-compose
+
 ## Telemetry Backends
 
 For this workshop, we will use a suite of backend services for telemetry. These are
