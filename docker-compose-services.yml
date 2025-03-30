@@ -1,3 +1,4 @@
+
 services:
 
   geolocator-service:
@@ -5,12 +6,14 @@ services:
       context: ./server/geolocator-service
     ports:
       - "5000"
+    stop_signal: SIGINT
 
   iss-distance-service:
     build:
       context: ./server/iss-distance-service
     ports:
       - "5000"
+    stop_signal: SIGINT
 
   gateway:
     build:
@@ -20,6 +23,7 @@ services:
     environment:
       - GEOLOCATOR_SERVICE_URL=http://geolocator-service:5000
       - ISS_DISTANCE_SERVICE_URL=http://iss-distance-service:5000
+    stop_signal: SIGINT
 
   frontend:
     build:
@@ -28,3 +32,4 @@ services:
       - "5000:5000"
     environment:
       - GATEWAY_URL=http://gateway:5000
+    stop_signal: SIGINT
