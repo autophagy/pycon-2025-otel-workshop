@@ -20,8 +20,7 @@ def get_iss_coordinates() -> Coordinates:
     if r.status_code == 200:
         position = r.json().get("iss_position")
         if position:
-            return Coordinates(position.get("latitude"), position.get("longitude"))
-
+            return Coordinates(float(position.get("latitude")), float(position.get("longitude")))
     return Coordinates(0, 0)
 
 
