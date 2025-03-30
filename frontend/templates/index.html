@@ -40,6 +40,11 @@
             It is {{distance}} km from {{location}}'s coordinates.
             {% endif %}
         </div>
+        {% if error %}
+        <div id="error">
+            Error: {{error}}
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
