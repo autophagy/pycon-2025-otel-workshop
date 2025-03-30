@@ -100,3 +100,9 @@ body {
     opacity: .4;
     animation:move-clouds 400s infinite;
 }
+
+#error {
+    padding: 1em;
+    background: #b51e1eab;
+    border-radius: 0.25em;
+}
