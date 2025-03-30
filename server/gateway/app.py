@@ -16,8 +16,7 @@ def api():
         if r.status_code == 200:
             coordinates = r.json()
 
-            r = requests.get(app.config["ISS_DISTANCE_SERVICE"], coordinates)
-
+            r = requests.get(app.config["ISS_DISTANCE_SERVICE"], params=coordinates)
             if r.status_code == 200:
                 return jsonify(r.json())
             else:
