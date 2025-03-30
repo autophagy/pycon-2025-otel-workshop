@@ -15,8 +15,7 @@ def homepage():
         j = r.json()
         dist = j.get("distance")
         lat = j.get("location", {}).get("latitude")
-        long = j.get("location", {}).get("latitude")
-
+        long = j.get("location", {}).get("longitude")
     return (
         render_template("index.html", latitude=lat, longitude=long, distance=dist, location=location),
         200,
