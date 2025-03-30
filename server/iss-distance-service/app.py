@@ -1,5 +1,5 @@
 import requests
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from flask import Flask, request, jsonify
 from geopy.distance import geodesic
 
@@ -41,7 +41,8 @@ def api():
         iss_location = get_iss_coordinates()
         location = Coordinates(float(latitude), float(longitude))
         distance = calculate_distance(location, iss_location)
-        return jsonify({"distance": distance})
+        return jsonify({"distance": distance,
+                        "location": asdict(iss_location)})
     else:
         return "No latitude/longitude given", 400
 
