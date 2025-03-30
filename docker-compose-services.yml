@@ -20,3 +20,11 @@ services:
     environment:
       - GEOLOCATOR_SERVICE_URL=http://geolocator-service:5000
       - ISS_DISTANCE_SERVICE_URL=http://iss-distance-service:5000
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5000:5000"
+    environment:
+      - GATEWAY_URL=http://gateway:5000

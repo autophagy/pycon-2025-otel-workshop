@@ -28,7 +28,7 @@
         <div id="form">
             <h2>Enter a placename to calculate how far the ISS is from its coordinates:</h2>
             <form method="post">
-                <input type="text" name="place" required>
+                <input type="text" name="location" required>
                 <button type="submit">Submit</button>
             </form>
         </div>
@@ -36,8 +36,8 @@
             {% if longitude %}
             The ISS is at {{latitude}}, {{longitude}}.
             {% endif %}
-            {% if place %}
-            It is {{distance}} km from {{place}}'s coordinates.
+            {% if location %}
+            It is {{distance}} km from {{location}}'s coordinates.
             {% endif %}
         </div>
     </div>
