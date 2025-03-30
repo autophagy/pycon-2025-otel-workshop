@@ -1,0 +1,22 @@
+services:
+
+  geolocator-service:
+    build:
+      context: ./server/geolocator-service
+    ports:
+      - "5000"
+
+  iss-distance-service:
+    build:
+      context: ./server/iss-distance-service
+    ports:
+      - "5000"
+
+  gateway:
+    build:
+      context: ./server/gateway
+    ports:
+      - "5000"
+    environment:
+      - GEOLOCATOR_SERVICE_URL=http://geolocator-service:5000
+      - ISS_DISTANCE_SERVICE_URL=http://iss-distance-service:5000

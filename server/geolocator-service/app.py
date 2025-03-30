@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 
 def get_coordinates_for_location(place: str) -> Optional[Coordinates]:
-    geolocator = Nominatim(user_agent="geo_app")
+    geolocator = Nominatim(user_agent="Pycon2025OtelWorkshop/1.0")
     location = geolocator.geocode(place)
 
     if location:
