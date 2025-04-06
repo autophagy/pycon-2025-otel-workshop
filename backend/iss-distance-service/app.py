@@ -13,6 +13,11 @@ from opentelemetry.metrics import (
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
 
 # 0. Set up an otel resource for the service
 resource=Resource.create(
@@ -21,14 +26,21 @@ resource=Resource.create(
     }
 )
 
-# 1. Set up the metrics exporter and provider.
-exporter = OTLPMetricExporter(insecure=True)
-reader = PeriodicExportingMetricReader(exporter)
-provider = MeterProvider(resource=resource, metric_readers=[reader])
-set_meter_provider(provider)
+# 1. Set up the metrics and tracing exporter and provider.
+metric_exporter = OTLPMetricExporter(insecure=True)
+metric_reader = PeriodicExportingMetricReader(metric_exporter)
+meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+set_meter_provider(meter_provider)
 
-# 2. Create a meter
+span_exporter = OTLPSpanExporter(insecure=True)
+span_processor = SimpleSpanProcessor(span_exporter)
+trace_provider = TracerProvider(resource=resource)
+trace_provider.add_span_processor(span_processor)
+trace.set_tracer_provider(trace_provider)
+
+# 2. Create a meter and tracer
 meter = get_meter_provider().get_meter("service.meter", "0.1.0")
+tracer = trace.get_tracer_provider().get_tracer("service.tracer", "0.1.0")
 
 # 3. Create a counter
 incoming_request_counter = meter.create_counter(
@@ -51,16 +63,20 @@ class Coordinates:
 
 
 def get_iss_coordinates() -> Coordinates:
-    r = requests.get(ISS_NOW_URL)
-    # 5. Use the counter for requests to the iss endpoint and add the status code as a field
-    iss_request_counter.add(1, {"response.status": r.status_code})
+    with tracer.start_as_current_span("getting-iss-coordinates") as span:
+        r = requests.get(ISS_NOW_URL)
+        # 5. Use the counter for requests to the iss endpoint and add the status code as a field
+        iss_request_counter.add(1, {"response.status": r.status_code})
 
-    if r.status_code == 200:
-        position = r.json().get("iss_position")
-        if position:
-            return Coordinates(float(position.get("latitude")), float(position.get("longitude")))
+        if r.status_code == 200:
+            position = r.json().get("iss_position")
+            if position:
+                coordinates = Coordinates(float(position.get("latitude")), float(position.get("longitude")))
+                span.set_attribute("iss.position", str(coordinates))
+                return coordinates
 
-    return Coordinates(0, 0)
+        span.set_status(trace.StatusCode.ERROR)
+        return Coordinates(0, 0)
 
 
 def calculate_distance(location: Coordinates, iss_location: Coordinates) -> float:
@@ -70,23 +86,24 @@ def calculate_distance(location: Coordinates, iss_location: Coordinates) -> floa
     ).km
     return round(distance, 2)
 
-
 @app.route("/", methods=["GET"])
 def api():
-    # 4. Use the counter for incoming requests
-    incoming_request_counter.add(1)
+    with tracer.start_as_current_span("calculating-iss-distance") as span:
+        # 4. Use the counter for incoming requests
+        incoming_request_counter.add(1)
 
-    latitude = request.args.get("latitude")
-    longitude = request.args.get("longitude")
+        latitude = request.args.get("latitude")
+        longitude = request.args.get("longitude")
 
-    if latitude and longitude:
-        iss_location = get_iss_coordinates()
-        location = Coordinates(float(latitude), float(longitude))
-        distance = calculate_distance(location, iss_location)
-        return jsonify({"distance": distance,
-                        "location": asdict(iss_location)})
-    else:
-        return "No latitude/longitude given", 400
+        if latitude and longitude:
+            iss_location = get_iss_coordinates()
+            location = Coordinates(float(latitude), float(longitude))
+            distance = calculate_distance(location, iss_location)
+            return jsonify({"distance": distance,
+                            "location": asdict(iss_location)})
+        else:
+            span.set_status(trace.StatusCode.ERROR)
+            return f"No latitude/longitude given", 400
 
 
 if __name__ == "__main__":
