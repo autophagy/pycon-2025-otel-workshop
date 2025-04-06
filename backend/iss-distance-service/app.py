@@ -1,4 +1,5 @@
 import requests
+import logging
 from dataclasses import dataclass, asdict
 from flask import Flask, request, jsonify
 from opentelemetry.sdk.resources import Resource
@@ -17,6 +18,12 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+    OTLPLogExporter,
+)
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 
 
 # 0. Set up an otel resource for the service
@@ -37,6 +44,25 @@ span_processor = SimpleSpanProcessor(span_exporter)
 trace_provider = TracerProvider(resource=resource)
 trace_provider.add_span_processor(span_processor)
 trace.set_tracer_provider(trace_provider)
+
+# 2. a. Set up logging provider
+logger_provider = LoggerProvider(resource=resource)
+set_logger_provider(logger_provider)
+
+# 2. b. Set up logging exporter and handler
+exporter = OTLPLogExporter(insecure=True)
+handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(console_handler)
+
+# 2. c. attach OTLP handler to root logger and create a namespaced logger
+otel_logger = logging.getLogger("iss-distance-service")
+otel_logger.addHandler(handler)
+otel_logger.level = logging.DEBUG
+
 
 # 2. Create a meter and tracer
 meter = get_meter_provider().get_meter("service.meter", "0.1.0")
@@ -76,6 +102,8 @@ def get_iss_coordinates() -> Coordinates:
                 return coordinates
 
         span.set_status(trace.StatusCode.ERROR)
+        # 2.d add logging when we don't receive a 200 from the ISS endpoint
+        otel_logger.error("request to iss endpoint returned a non-200 response")
         return Coordinates(0, 0)
 
 
@@ -91,6 +119,9 @@ def api():
     with tracer.start_as_current_span("calculating-iss-distance") as span:
         # 4. Use the counter for incoming requests
         incoming_request_counter.add(1)
+        # 2.e add logging when request received
+        otel_logger.info("received request from IP address: %s", request.remote_addr)
+
 
         latitude = request.args.get("latitude")
         longitude = request.args.get("longitude")
@@ -103,8 +134,13 @@ def api():
                             "location": asdict(iss_location)})
         else:
             span.set_status(trace.StatusCode.ERROR)
+            # 2.d add logging if no lat/log provided in request
+            otel_logger.warning("Missing latitude/longitude in request")
             return f"No latitude/longitude given", 400
 
 
 if __name__ == "__main__":
+    # 2.e add logging on application start
+    otel_logger.info("started application")
     app.run(host="0.0.0.0")
+    logger_provider.shutdown()
