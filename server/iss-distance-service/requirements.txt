@@ -1,4 +1,5 @@
 flask
 geopy
 requests
-
+opentelemetry-api
+opentelemetry-sdk
