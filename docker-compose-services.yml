@@ -3,11 +3,11 @@ services:
 
   geolocator-service:
     build:
-      context: ./server/geolocator-service
+      context: ./backend/geolocator-service
     develop:
       watch:
         - action: rebuild
-          path: ./server/geolocator-service
+          path: ./backend/geolocator-service
     ports:
       - "5000"
     stop_signal: SIGINT
@@ -21,18 +21,18 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: ./server/iss-distance-service
+          path: ./backend/iss-distance-service
     ports:
       - "5000"
     stop_signal: SIGINT
 
   gateway:
     build:
-      context: ./server/gateway
+      context: ./backend/gateway
     develop:
       watch:
         - action: rebuild
-          path: ./server/gateway
+          path: ./backend/gateway
     ports:
       - "5000"
     environment:
