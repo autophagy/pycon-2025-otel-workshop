@@ -14,7 +14,7 @@ services:
 
   iss-distance-service:
     build:
-      context: ./server/iss-distance-service
+      context: ./backend/iss-distance-service
     environment:
       # set up the otel collector exporter endpoint
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
