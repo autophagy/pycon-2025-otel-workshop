@@ -18,18 +18,24 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
     OTLPLogExporter,
 )
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-
+from opentelemetry.sdk.resources import (
+    DEPLOYMENT_ENVIRONMENT,
+    SERVICE_NAME,
+    Resource,
+)
 
 # 0. Set up an otel resource for the service
-resource=Resource.create(
-    {
-        "service.name": "iss-distance-service",
+resource = Resource(
+    attributes={
+        SERVICE_NAME: "iss-distance-service",
+        DEPLOYMENT_ENVIRONMENT: "dev",
     }
 )
 
@@ -65,8 +71,8 @@ otel_logger.level = logging.DEBUG
 
 
 # 2. Create a meter and tracer
-meter = get_meter_provider().get_meter("service.meter", "0.1.0")
-tracer = trace.get_tracer_provider().get_tracer("service.tracer", "0.1.0")
+meter = get_meter_provider().get_meter(__name__)
+tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 # 3. Create a counter
 incoming_request_counter = meter.create_counter(
@@ -88,11 +94,15 @@ class Coordinates:
     longitude: float
 
 
+@tracer.start_as_current_span("getting-iss-coordinates")
 def get_iss_coordinates() -> Coordinates:
-    with tracer.start_as_current_span("getting-iss-coordinates") as span:
         r = requests.get(ISS_NOW_URL)
         # 5. Use the counter for requests to the iss endpoint and add the status code as a field
         iss_request_counter.add(1, {"response.status": r.status_code})
+        span = trace.get_current_span()
+        span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
+        span.set_attribute(SpanAttributes.HTTP_STATUS, r.status_code)
+        span.set_attribute(SpanAttributes.HTTP_URL, ISS_NOW_URL)
 
         if r.status_code == 200:
             position = r.json().get("iss_position")
