@@ -11,8 +11,6 @@ services:
       - "4318:4318" # http
       - "8889:8889" # prometheus endpoint
 
-  # TODO: debug exporter for debugging?
-
   tempo:
     image: grafana/tempo:latest
     container_name: tempo

@@ -82,8 +82,7 @@ To build and start the services:
 To start the services in **watch** mode, so that they are rebuilt and restarted on
 code changes, run:
 
-```
-sh
+```sh
 > docker-compose -f docker-compose-services.yml watch
 ```
 
@@ -100,7 +99,7 @@ To stop the services, run:
 ## ![Workshop Material](static/WorkshopMaterial.png)
 
 Sections 1-3 will involve instrumenting just one of the services, the `iss-distance-service`. In Section 4
-we'll tie everything together following the approach in the previous sections to instrument all services.
+we'll tie everything together and instrument across all four services.
 
 ### Section 0: Create an OpenTelemetry Resource
 
@@ -108,12 +107,9 @@ The first thing we'll need to do is put the setup in place to support instrument
 
 In an editor, open up `backend/iss-distance-service/app.py`.
 
-An opentelemetry `Resource` is a representation of the entity producing telemetry (i.e. metrics, traces and/or logs).
-In this case the Resource represents the `iss-distance-service`.  We can provide further context about this resource
-using `attributes`. These attributes that we set on the resource are applicable to the service as a whole and are relevant
-to all telemetry exported e.g. the service name, version, environment. 
+Instrumenting a service starts with creating an OTel `Resource`. A `Resource` is a representation of the entity producing telemetry, i.e. a representation of the service which produces the metrics, traces and/or logs, which in this case is the `iss-distance-service`.  
 
-To set a resource for our service, begin by importing the following:
+To define a resource for our service, begin by importing the following:
 
 ```python
 from opentelemetry.sdk.resources import (
@@ -133,11 +129,151 @@ resource = Resource(
 )
 ```
 
-We will later use this resource in each of the following sections.
+This creates a resource, and provides further context about it using `attributes`. These attributes that we set on the resource are applicable to the service as a whole and will be relevant
+to all telemetry exported e.g., we can set things such as the service name, version, environment. 
 
-### Section 1: Logging
+We will later use this resource when initialising metrics, logging and tracing.
 
-### Section 2: Metrics
+### Section 1: Metrics
+
+#### i. Set up metric
+
+Before we can begin creating and exporting metrics, we need to do some setup.
+
+Again, open up `backend/iss-distance-service/app.py`.
+
+Add the following to the list of imports (each of these imports will be explained when we use them):
+
+```python
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+    OTLPMetricExporter,
+)
+from opentelemetry.metrics import (
+    get_meter_provider,
+    set_meter_provider,
+)
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+```
+
+First we use these imports to set up a metrics `exporter` and `provider`:
+
+```python
+exporter = OTLPMetricExporter(insecure=True)
+reader = PeriodicExportingMetricReader(exporter)
+provider = MeterProvider(resource=resource, metric_readers=[reader])
+set_meter_provider(provider)
+```
+
+This sets up the OTLP exporter to send metrics over OTLP to a backend (in our case the OpenTelemetry Collector). Setting `insecure=True` means it will send data over HTTP rather than HTTPS. The `MetricReader` exports metrics periodically. The `MeterProvider` manages the metrics meters and receives the resource that was created in Section 0. Finally we set the meter provider as the global provider, which allows the rest of our service to make use of it. 
+
+Next, we get a `meter`, which will be used to generate metrics:
+
+```python
+meter = get_meter_provider().get_meter(__name__)
+```
+
+#### ii. Create metrics
+
+There are several different types of metrics that can be created, such as counters, histograms and gauges. In this section, we will focus on creating a counter, but we encourage you to explore all metric types. 
+
+Directly below where you have defined the `meter`, create the following `counters` which will be used to count requests; one counter to count incoming requests received by the service, and the other to count outgoing requests to the ISS endpoint.
+
+```python
+incoming_request_counter = meter.create_counter(
+    "incoming.requests",
+    description="the number of requests made to the service",
+)
+iss_request_counter = meter.create_counter(
+    "iss.requests",
+    description="the number of requests made to iss endpoint",
+)
+```
+
+Then use the counters to generate metrics by adding the following,
+
+In the `api()` method:
+
+
+```python
+incoming_request_counter.add(1)
+```
+
+In the `get_iss_coordinates()` method, after the request is made:
+
+```python
+iss_request_counter.add(1, {"response.status": r.status_code})
+```
+
+
+#### iii. Explore metrics with Grafana and Prometheus
+
+TODO: add some screenshots
+
+### Section 2: Logging
+
+#### i. Set up logging
+
+Again, some setup is required before we can create logs. 
+
+Open up `backend/iss-distance-service/app.py` and add the following to the list of imports:
+
+```python
+import logging
+
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+    OTLPLogExporter,
+)
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+```
+
+Then, we'll then use these imports to set up the log `provider` and `exporter`. Underneath `app = Flask(__name__)` add the following to set up the logging provider.
+
+```python
+logger_provider = LoggerProvider(resource=resource)
+set_logger_provider(logger_provider)
+```
+
+This creates a `LoggerProvider`, and registers it so the logger provider can be used.
+
+Next we set up the OTLP exporter to send logs over OTLP. We also set up a logging handler which sends Python logs to OTel's logging system.
+
+```python
+exporter = OTLPLogExporter(insecure=True)
+handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(console_handler)`
+```
+
+In this step the `console_handler` is used to output logs to stdout/stderr for the purposes of debugging. This means that we'll send logs to both the telemetry backend and to the console.
+
+Lastly create and configure the OpenTelemetry logger for the service:
+
+```python
+otel_logger = logging.getLogger(__name__)
+otel_logger.addHandler(handler)
+otel_logger.level = logging.DEBUG
+```
+
+This attaches the OTLP handler to root logger and creates a namespaced logger. It hooks the standard Python logger into OpenTelemetry and captures all logs at level `DEBUG` and above.
+
+#### ii. Create logs
+
+Add logs to the following points in the code to record particular events:
+
+1. When the application is started: `otel_logger.info("started application")`
+2. When no latitude or longitude is provided in the request: `otel_logger.warning("Missing latitude/longitude in request")`
+3. When an incoming request is received: `otel_logger.info("received request from IP address: %s", request.remote_addr)`
+4. When a non-200 response is returned from the ISS endpoint: `otel_logger.error("request to iss endpoint returned a non-200 response")`
+
+#### iii. Explore logs with Grafana and Loki
+
+TODO: Add screenshots
 
 ### Section 3: Tracing
 
@@ -145,9 +281,7 @@ We will later use this resource in each of the following sections.
 
 Like in the previous sections, we'll need to do some setup, before we can create traces.
 
-Again, open up `backend/iss-distance-service/app.py`.
-
-Add the following to the list of imports:
+Again, open up `backend/iss-distance-service/app.py`, and add the following to the list of imports:
 
 ```python
 from opentelemetry import trace
@@ -179,7 +313,6 @@ After that we can set up the `tracer`, which will be used to create spans:
 ```python
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 ```
-
 
 #### ii. Create spans
 
@@ -258,7 +391,7 @@ else:
 
 ```
 
-#### iv. Exploring the traces with Grafana and Tempo
+#### iv. Explore traces with Grafana and Tempo
 
 TODO: Add screenshots
 
