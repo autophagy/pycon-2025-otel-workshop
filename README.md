@@ -61,8 +61,6 @@ To remove the backends and their containers, run:
 
 ![Schema Diagram of backend services](static/BackendSchema.png)
 
-TODO: fix typo in Darmstadt
-
 This workshop revolves around instrumenting an example microservice application. This application
 allows a user to determine the distance of a location from the current location of the
 International Space Station. It is composed of the following services:
@@ -99,9 +97,7 @@ To stop the services, run:
 
 ---
 
-## Workshop Material
-
-TODO: add a matching title image
+## ![Workshop Material](static/WorkshopMaterial.png)
 
 Sections 1-3 will involve instrumenting just one of the services, the `iss-distance-service`. In Section 4
 we'll tie everything together following the approach in the previous sections to instrument all services.
