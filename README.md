@@ -199,7 +199,8 @@ In the `api()` method:
 incoming_request_counter.add(1)
 ```
 
-In the `get_iss_coordinates()` method, after the request is made:
+In the `get_iss_coordinates()` method, after the request is made we can increment the `iss_request_counter` and add the response status code as an attribute.
+This will allow us to distiguish between responses which return successfully and error responses. When considering attributes to add, we need to keep their cardinality in mind, and should avoid high cardinality attributes (i.e. highly unique attributes such as UUIDs), we can result in costly metrics.
 
 ```python
 iss_request_counter.add(1, {"response.status": r.status_code})
@@ -260,7 +261,7 @@ otel_logger.addHandler(handler)
 otel_logger.level = logging.DEBUG
 ```
 
-This attaches the OTLP handler to root logger and creates a namespaced logger. It hooks the standard Python logger into OpenTelemetry and captures all logs at level `DEBUG` and above.
+This creates a namespaced logger and attaches the OTLP handler to the  `otel_logger`. It captures all logs at level `DEBUG` and above.
 
 #### ii. Create logs
 
