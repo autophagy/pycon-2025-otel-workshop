@@ -147,7 +147,7 @@ We will later use this resource when initialising metrics, logging and tracing.
 
 ### Section 1: Metrics
 
-#### i. Set up metric
+#### i. Setup metrics
 
 Before we can begin creating and exporting metrics, we need to do some setup.
 
@@ -167,20 +167,28 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 ```
 
-First we use these imports to set up a metrics `exporter` and `provider`:
+First we use these imports to set up a metrics `exporter` and `provider`. Create a `setup_metrics` method which accepts one argument of type `resource`:
 
 ```python
-exporter = OTLPMetricExporter(insecure=True)
-reader = PeriodicExportingMetricReader(exporter)
-provider = MeterProvider(resource=resource, metric_readers=[reader])
-set_meter_provider(provider)
+def setup_metrics(resource: Resource):
+    """
+    Sets up a metrics reader that exports every 1 second, and assigns it to be the
+    global meter provider.
+    """
+
+    metric_exporter = OTLPMetricExporter(insecure=True)
+    metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=1000)
+    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+    set_meter_provider(meter_provider)
 ```
 
 This sets up the OTLP exporter to send metrics over OTLP to a backend (in our case the OpenTelemetry Collector). Setting `insecure=True` means it will send data over HTTP rather than HTTPS. The `MetricReader` exports metrics periodically. The `MeterProvider` manages the metrics meters and receives the resource that was created in Section 0. Finally we set the meter provider as the global provider, which allows the rest of our service to make use of it. 
 
-Next, we get a `meter`, which will be used to generate metrics:
+Next, outside of any methods, we call the method we've created above to setup metrics, and then create a `meter` which will be used to generate metrics:
 
 ```python
+setup_metrics(resource)
+
 meter = get_meter_provider().get_meter(__name__)
 ```
 
@@ -241,38 +249,62 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 ```
 
-Then, we'll then use these imports to set up the log `provider` and `exporter`. Underneath `app = Flask(__name__)` add the following to set up the logging provider.
+Then, we'll then use these imports to set up the log `provider` and `exporter`. Create a `setup_logging` method, which accepts two arguments the `Resource` and a `Logger`, then add the following:
 
 ```python
-logger_provider = LoggerProvider(resource=resource)
-set_logger_provider(logger_provider)
+def setup_logging(resource: Resource, logger: logging.Logger):
+    """
+    Sets up a logging provider that exports logs in batches, and attaches the OTLP handler
+    to the given logger.
+    """
+
+    logger_provider = LoggerProvider(resource=resource)
+    set_logger_provider(logger_provider)
+
+    # 2. b. Set up logging exporter and handler
+    exporter = OTLPLogExporter(insecure=True)
+    handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+    logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+
+    logger.addHandler(handler)
+    logger.level = logging.DEBUG
+
+```
+
+This is quite a lot of setup and can seem a bit complicated. To deconstruct line by line what is happening:
+
+```python
+    logger_provider = LoggerProvider(resource=resource)
+    set_logger_provider(logger_provider)
 ```
 
 This creates a `LoggerProvider`, and registers it so the logger provider can be used.
 
-Next we set up the OTLP exporter to send logs over OTLP. We also set up a logging handler which sends Python logs to OTel's logging system.
 
 ```python
-exporter = OTLPLogExporter(insecure=True)
-handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
-logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+    exporter = OTLPLogExporter(insecure=True)
+    handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+    logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-logging.getLogger().addHandler(console_handler)`
 ```
 
-In this step the `console_handler` is used to output logs to stdout/stderr for the purposes of debugging. This means that we'll send logs to both the telemetry backend and to the console.
-
-Lastly create and configure the OpenTelemetry logger for the service:
+This sets up the OTLP exporter to send logs over OTLP. It then sets up a logging handler to send logs in OTLP format to a destination. We then register a `LogRecordProcessor` on the provider, in this case we use a `SimpleLogRecordProcessor`, which exports logs as soon as they are emitted.
 
 ```python
-otel_logger = logging.getLogger(__name__)
-otel_logger.addHandler(handler)
-otel_logger.level = logging.DEBUG
+    logger.addHandler(handler)
+    logger.level = logging.DEBUG
 ```
 
-This creates a namespaced logger and attaches the OTLP handler to the  `otel_logger`. It captures all logs at level `DEBUG` and above.
+This attaches the handler to the logger and sets the log level to `DEBUG`.
+
+Finally, we can call the `setup_logging` method we've created above:
+
+```python
+LOGGER = logging.getLogger("iss-distance-service")
+LOGGER.level = logging.DEBUG
+
+setup_logging(resource, LOGGER)
+```
 
 #### ii. Create logs
 
@@ -302,16 +334,20 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 ```
 
-Then, we'll then use these imports to set up the tracing `exporter` and `provider`. Underneath `app = Flask(__name__)` add the following:
+Then, we'll then use these imports to set up the tracing `exporter` and `provider`. Create a `setup_tracing` method which accepts one argument of type, `Resource`, like so:
 
 ```python
-span_exporter = OTLPSpanExporter()
+def setup_tracing(resource:Resource):
+    """
+    Sets up tracing provider that exports spans as soon as they are resolved, and
+    assigns it to be the global trace provider.
+    """
 
-span_processor = SimpleSpanProcessor(span_exporter)
-trace_provider = TracerProvider(resource=resource)
-trace_provider.add_span_processor(span_processor)
-
-trace.set_tracer_provider(trace_provider)
+    span_exporter = OTLPSpanExporter(insecure=True)
+    span_processor = SimpleSpanProcessor(span_exporter)
+    trace_provider = TracerProvider(resource=resource)
+    trace_provider.add_span_processor(span_processor)
+    set_tracer_provider(trace_provider)
 ```
 
 This is a lot of new additions in just a few short lines! Let's pause to take a look at what do each of these does: 
@@ -320,9 +356,11 @@ This is a lot of new additions in just a few short lines! Let's pause to take a 
 - `TracerProvider` - the provider manages and provides a `tracer` instance. This is used to create spans for distributed tracing.
 - `SimpleSpanProcessor` - the span processor exports spans to the `OTLPSpanExporter`. It exports them immediately as they're generated. We use this form of `Processor` for simplicity, but in production applications, you would typically use a `BatchSpanProcessor`.
 
-After that we can set up the `tracer`, which will be used to create spans:
+Next, outside of any methods, we call the method we've created above to setup tracing, and then create a `tracer` which will be used to create spans:
 
 ```python
+setup_tracing(resource)
+
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 ```
 
