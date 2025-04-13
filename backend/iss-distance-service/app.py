@@ -27,6 +27,9 @@ from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
 LOGGER = logging.getLogger("iss-distance-service")
 LOGGER.level = logging.DEBUG
 
@@ -104,6 +107,7 @@ iss_request_counter = meter.create_counter(
 ISS_NOW_URL = "http://api.open-notify.org/iss-now.json"
 
 app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
 
 @dataclass
 class Coordinates:
