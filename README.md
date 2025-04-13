@@ -11,16 +11,28 @@
 ### Agenda
 
 1. Introduction to Observability and OpenTelemetry
-1. Tour of the Application and Tooling
-1. Instrument a service in the application
-    1. Logging
-    1. Metrics
-    1. Tracing
-1. Tie everything together
+2. Tour of the Application and Tooling
+3. Instrument a service in the application
+    1. [Logging](#section-1-logging)
+    1. [Metrics](#section-2-metrics)
+    1. [Tracing](#section-3-tracing)
+4. [Tie everything together](#section-4-tying-it-all-together)
+
+### Useful Resources
+
+- [OpenTelemetry documentation](https://opentelemetry.io/docs/)
+    - [Concepts](https://opentelemetry.io/docs/concepts/)
+    - [Python](https://opentelemetry.io/docs/languages/python/)
+- [OpenTelemetry Python SDK](https://github.com/open-telemetry/opentelemetry-python)
+    - [Examples](https://github.com/open-telemetry/opentelemetry-python/tree/main/docs/examples)
+    - [API Reference](https://opentelemetry-python.readthedocs.io/en/latest/)
+- OpenTelemetry Autoinstrumentation
+    - [Flask](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
+    - [Requests](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html)
 
 ### Prerequisites
 
-All you need is `docker-compose` installed since we'll be using this to run and orchestrate the services and infrastructure.
+All you need is `docker` installed since we'll be using this to run and orchestrate the services and infrastructure.
 You don't even need to have a particular version of Python installed on your machine.
 
 ## ![Telemetry Platform](static/TelemetryPlatform.png)
@@ -29,12 +41,12 @@ For this workshop, we will use a suite of services to build our telemetry platfo
 
 - [Prometheus](https://prometheus.io/) for metrics.
 - [Loki](https://grafana.com/oss/loki/) for logging.
-- [Jaeger](https://www.jaegertracing.io/) and [Tempo](https://grafana.com/docs/tempo/latest/) for tracing.
+- [Tempo](https://grafana.com/docs/tempo/latest/) for tracing.
 
 To start the telemetry platform using [Docker Compose](https://docs.docker.com/compose/), run the following:
 
 ```sh
-> docker-compose up -d
+> docker compose up -d
 ```
 
 This will start the above services in the background, you can check on their status by running `docker ps`.
@@ -42,19 +54,18 @@ This will start the above services in the background, you can check on their sta
 The UIs for these services will then be accessable at:
 
 - Prometheus - <http://localhost:9090>
-- Jaeger - <http://localhost:16686>
 - Grafana - <http://localhost:3000>
 
 To pause the backends, run:
 
 ```sh
-> docker-compose stop
+> docker compose stop
 ```
 
 To remove the backends and their containers, run:
 
 ```sh
-> docker-compose down
+> docker compose down
 ```
 
 ## ![Backend Services](static/BackendServices.png)
@@ -76,22 +87,22 @@ International Space Station. It is composed of the following services:
 To build and start the services:
 
 ```sh
-> docker-compose -f docker-compose-services.yml up --build
+> docker compose -f docker-compose-services.yml up --build
 ```
 
 To start the services in **watch** mode, so that they are rebuilt and restarted on
 code changes, run:
 
 ```sh
-> docker-compose -f docker-compose-services.yml watch
+> docker compose -f docker-compose-services.yml watch
 ```
 
 After either of these, the frontend will be available at <http://localhost:5000>.
 
 To stop the services, run:
 
-```
-> docker-compose -f docker-compose-services.yml down
+```sh
+> docker compose -f docker-compose-services.yml down
 ```
 
 ---
