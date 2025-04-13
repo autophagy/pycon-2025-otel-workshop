@@ -28,7 +28,7 @@ service:
     traces:
       receivers: [otlp]
       processors: []
-      exporters: [otlphttp/tempo, debug]
+      exporters: [otlp/tempo, debug]
 
     metrics:
       receivers: [otlp]

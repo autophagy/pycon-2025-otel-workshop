@@ -228,7 +228,29 @@ iss_request_counter.add(1, {"response.status": r.status_code})
 
 #### iii. Explore metrics with Grafana and Prometheus
 
-TODO: add some screenshots
+Now that the metrics are being exported, we can check that they're being ingested into our telemetry
+platform. Let's first check Prometheus. If you go to [Prometheus](http://localhost:9090/query), you
+should see a page for querying metrics. Let's try with one of the metrics we added, `iss.requests`.
+Note that Prometheus transforms our metric names, replacing `.` and adding `total`, so that the metric is now called
+`iss_requests_total`. If you begin to type it into the Prometheus query bar, the metric should autocomplete:
+
+![Querying Prometheus for iss_requests_total](static/metrics/metrics1.png).
+
+If you select `iss_requests_total` and click `Execute`, you should now be able to see your metric:
+
+![Result of querying for iss_requests_total](static/metrics/metrics2.png)
+
+Make a few more requests, you should see the counter increase!
+
+We can also query our metrics in Grafana, using Prometheus as a data source. First, open the
+[Explore section in Grafana](http://localhost:3000/explore). From there, select "Prometheus"
+as the data source:
+
+![Selecting Prometheus as a data source in Grafana](static/metrics/metrics3.png)
+
+Selecting `iss_requests_total` and running the query will now show your metric.
+
+![Result of querying iss_requests_total in Grafana](static/metrics/metrics4.png)
 
 ### Section 2: Logging
 
@@ -317,7 +339,19 @@ Add logs to the following points in the code to record particular events:
 
 #### iii. Explore logs with Grafana and Loki
 
-TODO: Add screenshots
+Now that we are exporting logs, let's check they are being ingested. Again, open [Explore section in Grafana](http://localhost:3000/explore) and select "Loki" as the data source:
+
+![Selecting Loki as Data source in Grafana](static/logs/logs1.png)
+
+We should create a query for searching our logs. For now, let's query the `service_name`, which will
+be `iss-distance-service`. If you execute the query, you should see a graph of your logs:
+
+![Result of executing log search on Grafana](static/logs/logs2.png)
+
+If you scroll down, you'll see individual log lines. These log lines can be expanded, and you
+can see various attributes about the logs in question:
+
+![Detail of logs](static/logs/logs3.png)
 
 ### Section 3: Tracing
 
@@ -443,11 +477,46 @@ else:
 
 #### iv. Explore traces with Grafana and Tempo
 
-TODO: Add screenshots
+Now that we are exporting traces, let's check they are being ingested. Again, open [Explore section in Grafana](http://localhost:3000/explore) and select "Tempo" as the data source:
+
+![Selecting Tempo as Data source in Grafana](static/traces/traces1.png)
+
+Let's create a basic `Search` query, filtering on the service name `iss-distance-service`. You should
+see the traces being exported from your service.
+
+![Result of querying Grafana for traces](static/traces/traces2.png)
+
+If you open a trace ID from the result in a new tab, you'll be able to see some detail about the trace:
+
+![Detailed view of a trace](static/traces/traces3.png)
+
+You can see that the trace is made up of spans. You can expand one of the spans to see the extra
+attributes you assigned to it:
+
+![Detailed view of a span](static/traces/traces4.png)
 
 ### Section 4: Tying it all together
 
 #### Propagating traces between services
+
+#### iv. Explore propagated traces with Grafana
+
+Let's head back to the [Explore section in Grafana](http://localhost:3000/explore) again,
+and create a `Search` query from the Tempo data source. You should see that the service
+associated with the span is no longer `iss-distance-service` but `gateway` - this is
+the service that began the trace.
+
+![Searching for multi-service spans](static/prop/prop1.png)
+
+Opening the trace in a new tab will give you more detail:
+
+![Detailed view of a multi-service trace](static/prop/prop2.png)
+
+You can now see how the trace is composed of multiple spans from *different services*, colour
+coded. We can now see the whole path a request makes through our system, and how long it spends
+in each span. We can see from detail above that our request spent most of its time in getting
+the ISS coordinates, with a smaller amount of time spent resolving the coordinates of a given
+location.
 
 ### Wrap-Up
 
