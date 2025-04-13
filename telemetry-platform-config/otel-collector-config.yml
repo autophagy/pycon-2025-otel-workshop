@@ -10,11 +10,6 @@ receivers:
             - "*"
 
 exporters:
-  otlp/jaeger:
-    endpoint: "http://jaeger:4317"
-    tls:
-      insecure: true
-
   otlp/tempo:
     endpoint: "http://tempo:4317"
     tls:
@@ -26,19 +21,21 @@ exporters:
   otlphttp/loki:
     endpoint: "http://loki:3100/otlp"
 
+  debug:
+
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: []
-      exporters: [otlp/jaeger, otlp/tempo]
+      exporters: [otlphttp/tempo, debug]
 
     metrics:
       receivers: [otlp]
       processors: []
-      exporters: [prometheus]
+      exporters: [prometheus, debug]
 
     logs:
       receivers: [otlp]
       processors: []
-      exporters: [otlphttp/loki]
+      exporters: [otlphttp/loki, debug]
