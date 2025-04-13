@@ -4,6 +4,8 @@ services:
   geolocator-service:
     build:
       context: ./backend/geolocator-service
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     develop:
       watch:
         - action: rebuild
@@ -38,6 +40,7 @@ services:
     environment:
       - GEOLOCATOR_SERVICE_URL=http://geolocator-service:5000
       - ISS_DISTANCE_SERVICE_URL=http://iss-distance-service:5000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     stop_signal: SIGINT
 
   frontend:
@@ -51,4 +54,5 @@ services:
       - "5000:5000"
     environment:
       - GATEWAY_URL=http://gateway:5000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     stop_signal: SIGINT
