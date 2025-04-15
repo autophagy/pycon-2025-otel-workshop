@@ -31,8 +31,6 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 LOGGER = logging.getLogger("iss-distance-service")
-LOGGER.level = logging.DEBUG
-
 
 def setup_metrics(resource: Resource):
     """

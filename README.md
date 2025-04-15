@@ -94,7 +94,7 @@ To start the services in **watch** mode, so that they are rebuilt and restarted 
 code changes, run:
 
 ```sh
-> docker compose -f docker-compose-services.yml watch
+> docker compose -f docker-compose-services.yml up --build --watch
 ```
 
 After either of these, the frontend will be available at <http://localhost:5000>.
@@ -123,11 +123,7 @@ Instrumenting a service starts with creating an OTel `Resource`. A `Resource` is
 To define a resource for our service, begin by importing the following:
 
 ```python
-from opentelemetry.sdk.resources import (
-    DEPLOYMENT_ENVIRONMENT,
-    SERVICE_NAME,
-    Resource,
-)
+from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
 ```
 Then, towards the top of the file, add the following resource and set the values:
 
@@ -156,13 +152,8 @@ Again, open up `backend/iss-distance-service/app.py`.
 Add the following to the list of imports (each of these imports will be explained when we use them):
 
 ```python
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-    OTLPMetricExporter,
-)
-from opentelemetry.metrics import (
-    get_meter_provider,
-    set_meter_provider,
-)
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.metrics import get_meter_provider, set_meter_provider
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 ```
@@ -194,7 +185,7 @@ meter = get_meter_provider().get_meter(__name__)
 
 #### ii. Create metrics
 
-There are several different types of metrics that can be created, such as counters, histograms and gauges. In this section, we will focus on creating a counter, but we encourage you to explore all metric types. 
+There are several different types of metrics that can be created, such as counters, histograms and gauges. In this section, we will focus on creating a counter, but we encourage you to [explore all metric types](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#metric-points).
 
 Directly below where you have defined the `meter`, create the following `counters` which will be used to count requests; one counter to count incoming requests received by the service, and the other to count outgoing requests to the ISS endpoint.
 
@@ -209,27 +200,32 @@ iss_request_counter = meter.create_counter(
 )
 ```
 
-Then use the counters to generate metrics by adding the following,
-
-In the `api()` method:
+Then use the counters to generate metrics by adding the following in the `api()` method:
 
 
 ```python
-incoming_request_counter.add(1)
+
+@app.route("/", methods=["GET"])
+def api():
+    incoming_request_counter.add(1)
+    ...
 ```
 
 In the `get_iss_coordinates()` method, after the request is made we can increment the `iss_request_counter` and add the response status code as an attribute.
 This will allow us to distiguish between responses which return successfully and error responses. When considering attributes to add, we need to keep their cardinality in mind, and should avoid high cardinality attributes (i.e. highly unique attributes such as UUIDs), we can result in costly metrics.
 
 ```python
-iss_request_counter.add(1, {"response.status": r.status_code})
+def get_iss_coordinates() -> Coordinates:
+    r = requests.get(ISS_NOW_URL)
+    iss_request_counter.add(1, {"response.status": r.status_code})
+    ...
 ```
 
 
 #### iii. Explore metrics with Grafana and Prometheus
 
 Now that the metrics are being exported, we can check that they're being ingested into our telemetry
-platform. Let's first check Prometheus. If you go to [Prometheus](http://localhost:9090/query), you
+platform. Let's first check Prometheus. If you go to [Prometheus](http://localhost:9090), you
 should see a page for querying metrics. Let's try with one of the metrics we added, `iss.requests`.
 Note that Prometheus transforms our metric names, replacing `.` and adding `total`, so that the metric is now called
 `iss_requests_total`. If you begin to type it into the Prometheus query bar, the metric should autocomplete:
@@ -252,6 +248,8 @@ Selecting `iss_requests_total` and running the query will now show your metric.
 
 ![Result of querying iss_requests_total in Grafana](static/metrics/metrics4.png)
 
+You should also explore any other metrics you added!
+
 ### Section 2: Logging
 
 #### i. Set up logging
@@ -264,11 +262,9 @@ Open up `backend/iss-distance-service/app.py` and add the following to the list 
 import logging
 
 from opentelemetry._logs import set_logger_provider
-from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
-    OTLPLogExporter,
-)
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 ```
 
 Then, we'll then use these imports to set up the log `provider` and `exporter`. Create a `setup_logging` method, which accepts two arguments the `Resource` and a `Logger`, then add the following:
@@ -290,7 +286,6 @@ def setup_logging(resource: Resource, logger: logging.Logger):
 
     logger.addHandler(handler)
     logger.level = logging.DEBUG
-
 ```
 
 This is quite a lot of setup and can seem a bit complicated. To deconstruct line by line what is happening:
@@ -319,23 +314,23 @@ This sets up the OTLP exporter to send logs over OTLP. It then sets up a logging
 
 This attaches the handler to the logger and sets the log level to `DEBUG`.
 
-Finally, we can call the `setup_logging` method we've created above:
+Finally, we can create a global `LOGGER` for our application to use, and call
+the `setup_logging` method we've created above to attach our OTel functionality to it:
 
 ```python
 LOGGER = logging.getLogger("iss-distance-service")
-LOGGER.level = logging.DEBUG
-
 setup_logging(resource, LOGGER)
 ```
 
 #### ii. Create logs
 
-Add logs to the following points in the code to record particular events:
+Now, you can add logs to various points in the application where you think it might be useful.
+For example, you could add logs:
 
-1. When the application is started: `otel_logger.info("started application")`
-2. When no latitude or longitude is provided in the request: `otel_logger.warning("Missing latitude/longitude in request")`
-3. When an incoming request is received: `otel_logger.info("received request from IP address: %s", request.remote_addr)`
-4. When a non-200 response is returned from the ISS endpoint: `otel_logger.error("request to iss endpoint returned a non-200 response")`
+1. When the application is started: `LOGGER.info("started application")`
+2. When no latitude or longitude is provided in the request: `LOGGER.warning("Missing latitude/longitude in request")`
+3. When an incoming request is received: `LOGGER.info("received request from IP address: %s", request.remote_addr)`
+4. When a non-200 response is returned from the ISS endpoint: `LOGGER.error("request to iss endpoint returned a non-200 response")`
 
 #### iii. Explore logs with Grafana and Loki
 
@@ -362,8 +357,8 @@ Like in the previous sections, we'll need to do some setup, before we can create
 Again, open up `backend/iss-distance-service/app.py`, and add the following to the list of imports:
 
 ```python
-from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 ```
@@ -384,7 +379,7 @@ def setup_tracing(resource:Resource):
     set_tracer_provider(trace_provider)
 ```
 
-This is a lot of new additions in just a few short lines! Let's pause to take a look at what do each of these does: 
+This is a lot of new additions in just a few short lines! Let's pause to take a look at what each of these does:
 
 - `OTLPSpanExporter` - this is a span exporter. It exports spans to the OpenTelemetry Collector using the OpenTelemetry Protocol (OTLP).
 - `TracerProvider` - the provider manages and provides a `tracer` instance. This is used to create spans for distributed tracing.
@@ -404,26 +399,38 @@ Now that we have the setup in place, we can begin capturing useful information.
 
 On the `api` function, we can create the first `span`.
 
-A `trace` represents a journey through the application. It provides a wide view of the journey taken through the code and services. It is comprised of spans.
-A `span` represents a single event that occurs as part of journey through the application e.g a span can represent a HTTP request to other microservices or 3rd parties, database queries. Together, spans build traces.
+A `trace` represents a journey through the application. It provides a view of the journey a request takes through the code and services. It is comprised of spans.
+A `span` represents a unit of work or an operation that occurs as part of journey through the application e.g a span can represent a HTTP request to other microservices or 3rd parties, database queries, etc. Together, spans build traces.
 
 We would like to know when a request is made to the `iss-distance-service`, and how long the request takes.
 
 There are two ways to capture an OpenTelemtry span i. using a method decorator or ii. using `with`. In this example we will use both.
 
-Add the following `with` block to the `api` method, giving the span a suitable name e.g. `"calculating-api-distance"`:
+Add the following `with tracer.start_as_current_span` block to the `api` method, giving the span a suitable name e.g. `"calculating-api-distance"`:
 
 ```python
 def api():
+
+    # Starting a new span from the tracer
     with tracer.start_as_current_span("<PLACEHOLDER-SPAN-NAME>") as span:
-      ...
+        incoming_request_counter.add(1)
+        LOGGER.info("received request from IP address: %s", request.remote_addr)
+
+
+        latitude = request.args.get("latitude")
+        longitude = request.args.get("longitude")
+
+        ...
 ```
 
 We would also like to know when a request is made to the `iss_now` API. To know this, we will create a span when this is called. Add the following decorator to the `get_iss_coordinates` method, giving the span a suitable name e.g. `getting-iss-coordinates`, in order to create a `nested span`:
 
 ```python
+
+# Starting a new span from the tracer
 @tracer.start_as_current_span("<PLACEHOLDER-SPAN-NAME>")
 def get_iss_coordinates() -> Coordinates:
+    ...
 ```
 
 #### iii. Add span attributes
@@ -432,17 +439,30 @@ Attributes can be used to add additional metadata information to a span. This in
 when exploring traces and allows you to do things such as grouping or filtering.
 
 If the status code from the request to get the ISS coordinates is successful, we
-can set a `span attribute` to capture the coordinates returned:
+can set a `span attribute` to capture the coordinates returned, as well as setting
+the span's status to `ERROR` if anything fails:
 
 ```python
-if r.status_code == 200:
-    ...
+@tracer.start_as_current_span("getting-iss-coordinates")
+def get_iss_coordinates() -> Coordinates:
+        r = requests.get(ISS_NOW_URL)
 
-    span = trace.get_current_span()
-    if position:
-        coordinates = Coordinates(float(position.get("latitude")), float(position.get("longitude")))
-        span.set_attribute("iss.position", str(coordinates))
-        return coordinates
+        # Getting the current span
+        span = get_current_span()
+
+        if r.status_code == 200:
+            position = r.json().get("iss_position")
+            if position:
+                coordinates = Coordinates(float(position.get("latitude")), float(position.get("longitude")))
+
+                # Setting the iss.position attribute to be the returned coordinates
+                span.set_attribute("iss.position", str(coordinates))
+                return coordinates
+
+        # Setting the span's status to ERROR if anything has failed
+        span.set_status(StatusCode.ERROR)
+        LOGGER.error("request to iss endpoint returned a non-200 response")
+        return Coordinates(0, 0)
 ```
 
 Because there are some forms of data that are typically useful to capture, there
@@ -453,25 +473,46 @@ Import the following:
 from opentelemetry.semconv.trace import SpanAttributes
 ```
 
-Add the following after the request is made:
+We can now add attributes to the span, for example after we make a request to `ISS_NOW_URL`:
 
 ```python
-current_span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
-current_span.set_attribute(SpanAttributes.HTTP_STATUS, r.status_code)
-current_span.set_attribute(SpanAttributes.HTTP_URL, iss_now_url)
+
+@tracer.start_as_current_span("getting-iss-coordinates")
+def get_iss_coordinates() -> Coordinates:
+        r = requests.get(ISS_NOW_URL)
+
+        # Getting the current span
+        span = get_current_span()
+
+        span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
+        span.set_attribute(SpanAttributes.HTTP_STATUS, r.status_code)
+        span.set_attribute(SpanAttributes.HTTP_URL, iss_now_url)
+
+        ...
 ```
 
-Finally, we can handle error cases by setting a span status:
+Finally, we can handle error cases in the `api()` by setting a span status:
 
 ```python
 
-if latitude and longitude:
-    ...
-    return ...
+def api():
 
-else:
-    span.set_status(trace.StatusCode.ERROR)
-    return ...
+    # Starting a new span from the tracer
+    with tracer.start_as_current_span("<PLACEHOLDER-SPAN-NAME>") as span:
+        incoming_request_counter.add(1)
+        LOGGER.info("received request from IP address: %s", request.remote_addr)
+
+
+        latitude = request.args.get("latitude")
+        longitude = request.args.get("longitude")
+
+        if latitude and longitude:
+            ...
+        else:
+
+            # Set the span's status code to an error
+            span.set_status(StatusCode.ERROR)
+            return f"No latitude/longitude given", 400
 
 ```
 
