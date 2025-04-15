@@ -264,7 +264,7 @@ import logging
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 ```
 
 Then, we'll then use these imports to set up the log `provider` and `exporter`. Create a `setup_logging` method, which accepts two arguments the `Resource` and a `Logger`, then add the following:
@@ -399,8 +399,16 @@ Now that we have the setup in place, we can begin capturing useful information.
 
 On the `api` function, we can create the first `span`.
 
-A `trace` represents a journey through the application. It provides a view of the journey a request takes through the code and services. It is comprised of spans.
-A `span` represents a unit of work or an operation that occurs as part of journey through the application e.g a span can represent a HTTP request to other microservices or 3rd parties, database queries, etc. Together, spans build traces.
+> **Note**
+>
+> At this point, it's worth explaining the relationship between `span`s and `trace`s, and what they represent.
+>
+> A `span` represents a unit of work or an operation that occurs as part of the journey
+a request takes through an application. These could be HTTP requests to other services,
+requests to third parties, database queries, etc. Spans can also be nested - a large span that represents one large unit of work might contain nested within it several smaller spans that represent smaller units of work that make up the whole.
+>
+> A `trace` is a collection of `span`s that, altogether, represent the journey a request takes through an entire application. It provides a view of the journey as the request flows through different services and parts of the application.
+
 
 We would like to know when a request is made to the `iss-distance-service`, and how long the request takes.
 
