@@ -384,7 +384,7 @@ def setup_tracing(resource:Resource):
     set_tracer_provider(trace_provider)
 ```
 
-This is a lot of new additions in just a few short lines! Let's pause to take a look at what do each of these does: 
+This is a lot of new additions in just a few short lines! Let's pause to take a look at what each of these does: 
 
 - `OTLPSpanExporter` - this is a span exporter. It exports spans to the OpenTelemetry Collector using the OpenTelemetry Protocol (OTLP).
 - `TracerProvider` - the provider manages and provides a `tracer` instance. This is used to create spans for distributed tracing.
