@@ -1,7 +1,7 @@
 services:
 
   otel-collector:
-    image: otel/opentelemetry-collector:latest
+    image: otel/opentelemetry-collector:0.123.0
     container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yml"]
     volumes:
@@ -12,7 +12,7 @@ services:
       - "8889:8889" # prometheus endpoint
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.7.2
     container_name: tempo
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
@@ -23,7 +23,7 @@ services:
       - "4318"    # otlp http
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.3.0
     container_name: prometheus
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
@@ -32,7 +32,7 @@ services:
       - "9090:9090"
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.4.3
     container_name: loki
     command: ["--config.file=/etc/loki/loki-config.yml"]
     volumes:
@@ -41,7 +41,7 @@ services:
       - "3100"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.0
     container_name: grafana
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -51,6 +51,3 @@ services:
       - ./telemetry-platform-config/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
     ports:
       - "3000:3000"
-
-volumes:
-  grafana_data:
