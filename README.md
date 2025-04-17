@@ -4,7 +4,7 @@
 
 ### Objective
 
-- Instrument an existing service with logs, metrics and traces using OpenTelemetry
+- Instrument an existing service with logs, metrics and traces using OpenTelemetry (also referred to as OTel)
 - Send OpenTelemetry data to a set of telemetry backends
 - Use UIs to explore and make sense of observability data
 
@@ -42,6 +42,8 @@ For this workshop, we will use a suite of services to build our telemetry platfo
 - [Prometheus](https://prometheus.io/) for metrics.
 - [Loki](https://grafana.com/oss/loki/) for logging.
 - [Tempo](https://grafana.com/docs/tempo/latest/) for tracing.
+- [Grafana](https://grafana.com/) a combined platform where we send metrics, logging and tracing data so we can access it all in one place.
+- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) for collecting, processing and exporting OTel data to the services above.
 
 To start the telemetry platform using [Docker Compose](https://docs.docker.com/compose/), run the following:
 
@@ -55,6 +57,9 @@ The UIs for these services will then be accessable at:
 
 - Prometheus - <http://localhost:9090>
 - Grafana - <http://localhost:3000>
+- Loki - has no UI, interact with via Grafana
+- Tempo - has no UI, interact with via Grafana
+- OpenTelemetry Collector - has no UI
 
 To pause the backends, run:
 
@@ -68,9 +73,9 @@ To remove the backends and their containers, run:
 > docker compose down
 ```
 
-## ![Backend Services](static/BackendServices.png)
+## ![Application Services](static/BackendServices.png)
 
-![Schema Diagram of backend services](static/BackendSchema.png)
+![Schema Diagram of application services](static/BackendSchema.png)
 
 This workshop revolves around instrumenting an example microservice application. This application
 allows a user to determine the distance of a location from the current location of the
@@ -116,7 +121,7 @@ we'll tie everything together and instrument across all four services.
 
 The first thing we'll need to do is put the setup in place to support instrumenting with OpenTelemetry.
 
-In an editor, open up `backend/iss-distance-service/app.py`.
+Ensure that you have all the containers running from the previous sections (both the `Telemetry Platform` and `Application Services`. You'll want to keep these running throughout the workshop. Then, in an editor, open up `backend/iss-distance-service/app.py`.
 
 Instrumenting a service starts with creating an OTel `Resource`. A `Resource` is a representation of the entity producing telemetry, i.e. a representation of the service which produces the metrics, traces and/or logs, which in this case is the `iss-distance-service`.  
 
