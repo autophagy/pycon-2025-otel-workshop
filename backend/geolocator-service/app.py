@@ -12,7 +12,6 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.semconv.trace import SpanAttributes
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 def setup_tracing(resource:Resource):
     """

@@ -23,7 +23,6 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 LOGGER = logging.getLogger("iss-distance-service")
 
