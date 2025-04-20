@@ -1,4 +1,5 @@
 import requests
+import logging
 from dataclasses import dataclass, asdict
 from flask import Flask, request, jsonify
 from geopy.distance import geodesic
@@ -10,6 +11,13 @@ from opentelemetry.metrics import get_meter_provider, set_meter_provider
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+
+LOGGER = logging.getLogger("iss-distance-service")
+
 
 def setup_metrics(resource: Resource):
     """
@@ -17,7 +25,7 @@ def setup_metrics(resource: Resource):
     global meter provider.
     """
 
-    # 1. Set up the metrics exporter and provider.
+    # Set up the metrics exporter and provider.
     metric_exporter = OTLPMetricExporter(insecure=True)
     metric_reader = PeriodicExportingMetricReader(
         metric_exporter, export_interval_millis=1000
@@ -26,7 +34,24 @@ def setup_metrics(resource: Resource):
     set_meter_provider(meter_provider)
 
 
-# 0. Set up an otel resource for the service
+def setup_logging(resource: Resource, logger: logging.Logger):
+    """
+    Sets up a logging provider that exports logs in batches, and attaches the OTLP handler
+    to the given logger.
+    """
+
+    logger_provider = LoggerProvider(resource=resource)
+    set_logger_provider(logger_provider)
+
+    # Set up logging exporter and handler
+    exporter = OTLPLogExporter(insecure=True)
+    handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+    logger_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+
+    logger.addHandler(handler)
+    logger.level = logging.DEBUG
+
+# Set up an otel resource for the service
 resource = Resource(
     attributes={
         SERVICE_NAME: "iss-distance-service",
@@ -34,13 +59,14 @@ resource = Resource(
     }
 )
 
-# 1. Setup providers
+# Setup providers
 setup_metrics(resource)
+setup_logging(resource, LOGGER)
 
-# 2. Create a meter
+# Create a meter
 meter = get_meter_provider().get_meter(__name__)
 
-# 3. Create a counter
+# Create a counter
 incoming_request_counter = meter.create_counter(
     "incoming.requests",
     description="the number of requests made to the service",
@@ -64,7 +90,7 @@ class Coordinates:
 
 def get_iss_coordinates() -> Coordinates:
     r = requests.get(ISS_NOW_URL)
-    # 5. Use the counter for requests to the iss endpoint and add the status code as a field
+    # Use the counter for requests to the iss endpoint and add the status code as a field
     iss_request_counter.add(1, {"response.status": r.status_code})
 
     if r.status_code == 200:
@@ -75,6 +101,8 @@ def get_iss_coordinates() -> Coordinates:
             )
             return coordinates
 
+    # Add logging when we don't receive a 200 from the ISS endpoint
+    LOGGER.error("request to iss endpoint returned a non-200 response")
     return Coordinates(0, 0)
 
 
@@ -88,8 +116,10 @@ def calculate_distance(location: Coordinates, iss_location: Coordinates) -> floa
 
 @app.route("/", methods=["GET"])
 def api():
-    # 4. Use the counter for incoming requests
+    # Use the counter for incoming requests
     incoming_request_counter.add(1)
+    # add logging when request received
+    LOGGER.info("received request from IP address: %s", request.remote_addr)
 
     latitude = request.args.get("latitude")
     longitude = request.args.get("longitude")
@@ -100,8 +130,12 @@ def api():
         distance = calculate_distance(location, iss_location)
         return jsonify({"distance": distance, "location": asdict(iss_location)})
     else:
+        # add logging if no lat/log provided in request
+        LOGGER.warning("Missing latitude/longitude in request")
         return "No latitude/longitude given", 400
 
 
 if __name__ == "__main__":
+    # add logging on application start
+    LOGGER.info("started application")
     app.run(host="0.0.0.0")
