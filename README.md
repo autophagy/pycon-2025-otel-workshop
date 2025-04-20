@@ -20,6 +20,17 @@
 
 ### Useful Resources
 
+For each section of the workshop, there is a corresponding branch with a commit containing the required changes.
+You can use these as a reference resource if at any point you would like some extra guidance.
+
+- Section 0: section-0-resources
+- Section 1: section-1-metrics
+- Section 2: section-2-logging
+- Section 3: section-3-tracing
+- Section 4: section-4-distributed-tracing
+
+Here are some links to additional reference documentation for the topics we'll be discussing:
+
 - [OpenTelemetry documentation](https://opentelemetry.io/docs/)
     - [Concepts](https://opentelemetry.io/docs/concepts/)
     - [Python](https://opentelemetry.io/docs/languages/python/)
@@ -119,6 +130,8 @@ we'll tie everything together and instrument across all four services.
 
 ### Section 0: Create an OpenTelemetry Resource
 
+> **[Hint]** Branch with completed section: [section-0-resources](https://github.com/autophagy/pycon-2025-otel-workshop/tree/section-0-resources)
+
 The first thing we'll need to do is put the setup in place to support instrumenting with OpenTelemetry.
 
 Ensure that you have all the containers running from the previous sections (both the `Telemetry Platform` and `Application Services`. You'll want to keep these running throughout the workshop. Then, in an editor, open up `backend/iss-distance-service/app.py`.
@@ -146,7 +159,10 @@ to all telemetry exported e.g., we can set things such as the service name, vers
 
 We will later use this resource when initialising metrics, logging and tracing.
 
+
 ### Section 1: Metrics
+
+> **[Hint]** Branch with completed section: [section-1-metrics](https://github.com/autophagy/pycon-2025-otel-workshop/tree/section-1-metrics)
 
 #### i. Setup metrics
 
@@ -228,7 +244,6 @@ def get_iss_coordinates() -> Coordinates:
     ...
 ```
 
-
 #### iii. Explore metrics with Grafana and Prometheus
 
 Now that the metrics are being exported, we can check that they're being ingested into our telemetry
@@ -258,6 +273,8 @@ Selecting `iss_requests_total` and running the query will now show your metric.
 You should also explore any other metrics you added!
 
 ### Section 2: Logging
+
+> **[Hint]** Branch with completed section: [section-2-logging](https://github.com/autophagy/pycon-2025-otel-workshop/tree/section-2-logging)
 
 #### i. Set up logging
 
@@ -356,6 +373,8 @@ can see various attributes about the logs in question:
 ![Detail of logs](static/logs/logs3.png)
 
 ### Section 3: Tracing
+
+> **[Hint]** Branch with completed section: [section-3-tracing](https://github.com/autophagy/pycon-2025-otel-workshop/tree/section-3-tracing)
 
 #### i. Set up tracing
 
@@ -558,6 +577,8 @@ attributes you assigned to it:
 
 ### Section 4: Distributed Tracing
 
+> **[Hint]** Branch with completed section: [section-4-distributed-tracing](https://github.com/autophagy/pycon-2025-otel-workshop/tree/section-4-distributed-tracing)
+
 Distributed tracing allows us to visualize and explore the request flow through the whole stack.
 
 For distributed tracing across our services, we'll need to follow a similar process to what we used in the previous section
@@ -575,6 +596,12 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 ```
 
 The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation. We could do this manually by propagating and extracting trace IDs from the request headers, but this is brittle and tedious - the Flask autoinstrumentor provides us this functionality for free.
+
+Then, we can auto-instrument the Flask application using the Instrumentor:
+
+```python
+FlaskInstrumentor().instrument_app(app)
+```
 
 This is the only change we need to make to this service, which means we can move on to the others.
 
@@ -613,7 +640,7 @@ resource = Resource(
         DEPLOYMENT_ENVIRONMENT: "dev",
     }
 )
-````
+```
 
 Next we create a method for setting up tracing:
 
