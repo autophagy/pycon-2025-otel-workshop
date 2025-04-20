@@ -16,6 +16,17 @@ from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import (
+    get_tracer_provider,
+    set_tracer_provider,
+    get_current_span,
+    StatusCode,
+)
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.semconv.trace import SpanAttributes
+
 LOGGER = logging.getLogger("iss-distance-service")
 
 
@@ -51,6 +62,20 @@ def setup_logging(resource: Resource, logger: logging.Logger):
     logger.addHandler(handler)
     logger.level = logging.DEBUG
 
+
+def setup_tracing(resource: Resource):
+    """
+    Sets up tracing provider that exports spans as soon as they are resolved, and
+    assigns it to be the global trace provider.
+    """
+
+    span_exporter = OTLPSpanExporter(insecure=True)
+    span_processor = SimpleSpanProcessor(span_exporter)
+    trace_provider = TracerProvider(resource=resource)
+    trace_provider.add_span_processor(span_processor)
+    set_tracer_provider(trace_provider)
+
+
 # Set up an otel resource for the service
 resource = Resource(
     attributes={
@@ -62,9 +87,11 @@ resource = Resource(
 # Setup providers
 setup_metrics(resource)
 setup_logging(resource, LOGGER)
+setup_tracing(resource)
 
-# Create a meter
+# Create a meter and tracer
 meter = get_meter_provider().get_meter(__name__)
+tracer = get_tracer_provider().get_tracer(__name__)
 
 # Create a counter
 incoming_request_counter = meter.create_counter(
@@ -88,10 +115,15 @@ class Coordinates:
     longitude: float
 
 
+@tracer.start_as_current_span("getting-iss-coordinates")
 def get_iss_coordinates() -> Coordinates:
     r = requests.get(ISS_NOW_URL)
     # Use the counter for requests to the iss endpoint and add the status code as a field
     iss_request_counter.add(1, {"response.status": r.status_code})
+    span = get_current_span()
+    span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
+    span.set_attribute(SpanAttributes.HTTP_STATUS_CODE, r.status_code)
+    span.set_attribute(SpanAttributes.HTTP_URL, ISS_NOW_URL)
 
     if r.status_code == 200:
         position = r.json().get("iss_position")
@@ -99,9 +131,11 @@ def get_iss_coordinates() -> Coordinates:
             coordinates = Coordinates(
                 float(position.get("latitude")), float(position.get("longitude"))
             )
+            span.set_attribute("iss.position", str(coordinates))
             return coordinates
 
     # Add logging when we don't receive a 200 from the ISS endpoint
+    span.set_status(StatusCode.ERROR)
     LOGGER.error("request to iss endpoint returned a non-200 response")
     return Coordinates(0, 0)
 
@@ -116,23 +150,25 @@ def calculate_distance(location: Coordinates, iss_location: Coordinates) -> floa
 
 @app.route("/", methods=["GET"])
 def api():
-    # Use the counter for incoming requests
-    incoming_request_counter.add(1)
-    # add logging when request received
-    LOGGER.info("received request from IP address: %s", request.remote_addr)
+    with tracer.start_as_current_span("calculating-iss-distance") as span:
+        # Use the counter for incoming requests
+        incoming_request_counter.add(1)
+        # add logging when request received
+        LOGGER.info("received request from IP address: %s", request.remote_addr)
 
-    latitude = request.args.get("latitude")
-    longitude = request.args.get("longitude")
+        latitude = request.args.get("latitude")
+        longitude = request.args.get("longitude")
 
-    if latitude and longitude:
-        iss_location = get_iss_coordinates()
-        location = Coordinates(float(latitude), float(longitude))
-        distance = calculate_distance(location, iss_location)
-        return jsonify({"distance": distance, "location": asdict(iss_location)})
-    else:
-        # add logging if no lat/log provided in request
-        LOGGER.warning("Missing latitude/longitude in request")
-        return "No latitude/longitude given", 400
+        if latitude and longitude:
+            iss_location = get_iss_coordinates()
+            location = Coordinates(float(latitude), float(longitude))
+            distance = calculate_distance(location, iss_location)
+            return jsonify({"distance": distance, "location": asdict(iss_location)})
+        else:
+            # add logging if no lat/log provided in request
+            LOGGER.warning("Missing latitude/longitude in request")
+            span.set_status(StatusCode.ERROR)
+            return "No latitude/longitude given", 400
 
 
 if __name__ == "__main__":
