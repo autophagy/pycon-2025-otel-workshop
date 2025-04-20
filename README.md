@@ -567,7 +567,7 @@ Open up `backend/iss-distance-service/app.py`, and add the following to the list
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 ```
 
-The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation. We could do this manually by propagating and extracting trace IDs from the request headers, but this is brittle an tedious - the Flask autoinstrumentor provides us this functionality for free.
+The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation. We could do this manually by propagating and extracting trace IDs from the request headers, but this is brittle and tedious - the Flask autoinstrumentor provides us this functionality for free.
 
 This is the only change we need to make to this service, which means we can move on to the others.
 
