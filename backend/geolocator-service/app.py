@@ -12,7 +12,6 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.semconv.trace import SpanAttributes
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 def setup_tracing(resource:Resource):
     """
@@ -27,7 +26,6 @@ def setup_tracing(resource:Resource):
     set_tracer_provider(trace_provider)
 
 
-# 0. Set up an otel resource for the service
 resource = Resource(
     attributes={
         SERVICE_NAME: "geolocator-service",
@@ -35,10 +33,8 @@ resource = Resource(
     }
 )
 
-# 1. Setup providers
 setup_tracing(resource)
 
-# 2. Create a meter and tracer
 tracer = get_tracer_provider().get_tracer(__name__)
 
 

@@ -16,7 +16,7 @@
     1. [Logging](#section-1-logging)
     1. [Metrics](#section-2-metrics)
     1. [Tracing](#section-3-tracing)
-4. [Tie everything together](#section-4-tying-it-all-together)
+4. [Distributed tracing](#section-4-distributed-tracing)
 
 ### Useful Resources
 
@@ -549,9 +549,102 @@ attributes you assigned to it:
 
 ![Detailed view of a span](static/traces/traces4.png)
 
-### Section 4: Tying it all together
+### Section 4: Distributed Tracing
 
-#### Propagating traces between services
+Distributed tracing allows us to visualize and explore the request flow through the whole stack.
+
+For distributed tracing across our services, we'll need to follow a similar process to what we used in the previous section
+to set up tracing for the `iss-distance-service`. It is a little bit repetitive, but once we're done we'll be able to see the
+request flow through the stack!
+
+#### i. ISS Distance Service
+
+Before instrumenting the other services, we need to make a small addition to this service to support trace propagation using Flask.
+
+Open up `backend/iss-distance-service/app.py`, and add the following to the list of imports:
+
+```python
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+```
+
+The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation. We could do this manually by propagating and extracting trace IDs from the request headers, but this is brittle and tedious - the Flask autoinstrumentor provides us this functionality for free.
+
+This is the only change we need to make to this service, which means we can move on to the others.
+
+#### ii. Gateway Service
+
+To instrument the Gateway Service with tracing, we need to follow much the same process as before. Hopefully some of this will start to feel familiar.
+
+Open up `backend/gateway/app.py`, and add the following to the list of imports:
+
+```python
+from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
+
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.semconv.trace import SpanAttributes
+
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+```
+
+You might notice that we include one import that we haven't seen yet, `RequestsInstrumentor`. We add the [RequestsInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html) in order to enable tracing of HTTP requests made by the [requests](https://docs.python-requests.org/en/latest/index.html) library. The requests autoinstrumentor adds the current trace/span ID to the HTTP request headers, so that it gets propagated to the target service. In this service, we use the `requests` library to make requests to our backends.
+
+Then we set up the Resource, underneath the imports:
+
+```python
+resource = Resource(
+    attributes={
+        SERVICE_NAME: "gateway",
+        DEPLOYMENT_ENVIRONMENT: "dev",
+    }
+)
+````
+
+Next we create a method for setting up tracing:
+
+```python
+def setup_tracing(resource:Resource):
+    span_exporter = OTLPSpanExporter(insecure=True)
+    span_processor = SimpleSpanProcessor(span_exporter)
+    trace_provider = TracerProvider(resource=resource)
+    trace_provider.add_span_processor(span_processor)
+    set_tracer_provider(trace_provider)
+```
+
+After this, we can call the this method to setup tracing and create the tracer:
+
+```python
+setup_tracing(resource)
+tracer = get_tracer_provider().get_tracer(__name__)
+```
+
+Finally, we can set up the Instrumentors:
+
+```python
+FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
+```
+
+We can also add error handling at various points, e.g. when we don't receive a 200 response from an endpoint:
+
+```python
+
+span = get_current_span()
+
+span.set_attribute("error.text", r.text)
+span.set_status(StatusCode.ERROR)
+```
+
+#### iii. Geolocator Service
+
+To setup tracing in the Geolocator Service, we can follow the exact
+same steps as we followed for the `Gateway` service (but excluding the `RequestsInstrumentor`, since this is not needed by the Geolocator Service)!
+
+Once all of the tracing has been set up make some requests via the frontend and go to the next step to visualize them!
+
 
 #### iv. Explore propagated traces with Grafana
 
@@ -572,6 +665,5 @@ in each span. We can see from detail above that our request spent most of its ti
 the ISS coordinates, with a smaller amount of time spent resolving the coordinates of a given
 location.
 
-### Wrap-Up
-
-
+If you have time, you could add the same tracing code to the `frontend service`, so see the
+entire request flow starting from the frontend!
