@@ -3,6 +3,15 @@ from dataclasses import dataclass, asdict
 from flask import Flask, request, jsonify
 from geopy.distance import geodesic
 
+from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
+
+# 0. Set up an otel resource for the service
+resource = Resource(
+    attributes={
+        SERVICE_NAME: "iss-distance-service",
+        DEPLOYMENT_ENVIRONMENT: "dev",
+    }
+)
 
 ISS_NOW_URL = "http://api.open-notify.org/iss-now.json"
 
