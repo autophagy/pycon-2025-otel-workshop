@@ -9,7 +9,6 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.semconv.trace import SpanAttributes
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 

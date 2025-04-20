@@ -159,7 +159,7 @@ def api():
             span.set_status(StatusCode.ERROR)
             # 2.d add logging if no lat/log provided in request
             LOGGER.warning("Missing latitude/longitude in request")
-            return f"No latitude/longitude given", 400
+            return "No latitude/longitude given", 400
 
 
 if __name__ == "__main__":
