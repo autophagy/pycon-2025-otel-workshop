@@ -27,6 +27,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.semconv.trace import SpanAttributes
 
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
 LOGGER = logging.getLogger("iss-distance-service")
 
 
@@ -107,6 +109,7 @@ iss_request_counter = meter.create_counter(
 ISS_NOW_URL = "http://api.open-notify.org/iss-now.json"
 
 app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
 
 
 @dataclass
