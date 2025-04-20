@@ -6,14 +6,19 @@ from typing import Optional
 from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
 
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
+from opentelemetry.trace import (
+    get_tracer_provider,
+    set_tracer_provider,
+    get_current_span,
+    StatusCode,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.semconv.trace import SpanAttributes
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
-def setup_tracing(resource:Resource):
+
+def setup_tracing(resource: Resource):
     """
     Sets up tracing provider that exports spans as soon as they are resolved, and
     assigns it to be the global trace provider.
@@ -46,6 +51,7 @@ class Coordinates:
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
+
 
 @tracer.start_as_current_span("getting-coordinates-for-location")
 def get_coordinates_for_location(place: str) -> Optional[Coordinates]:
