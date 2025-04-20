@@ -173,7 +173,9 @@ def setup_metrics(resource: Resource):
     """
 
     metric_exporter = OTLPMetricExporter(insecure=True)
-    metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=1000)
+    metric_reader = PeriodicExportingMetricReader(
+        metric_exporter, export_interval_millis=1000
+    )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     set_meter_provider(meter_provider)
 ```
@@ -363,7 +365,12 @@ Again, open up `backend/iss-distance-service/app.py`, and add the following to t
 
 ```python
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
+from opentelemetry.trace import (
+    get_tracer_provider,
+    set_tracer_provider,
+    get_current_span,
+    StatusCode,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 ```
@@ -581,7 +588,12 @@ Open up `backend/gateway/app.py`, and add the following to the list of imports:
 from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
 
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
+from opentelemetry.trace import (
+    get_tracer_provider,
+    set_tracer_provider,
+    get_current_span,
+    StatusCode,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.semconv.trace import SpanAttributes
