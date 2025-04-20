@@ -567,7 +567,7 @@ Open up `backend/iss-distance-service/app.py`, and add the following to the list
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 ```
 
-The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation.
+The [FlaskInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html) provides telemetry to track requests made in Flask applications and is an example of [auto-instrumentation](https://opentelemetry.io/docs/zero-code/python/), or automatic instrumentation. We could do this manually by propagating and extracting trace IDs from the request headers, but this is brittle an tedious - the Flask autoinstrumentor provides us this functionality for free.
 
 This is the only change we need to make to this service, which means we can move on to the others.
 
@@ -590,7 +590,7 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 ```
 
-You might notice that we include one import that we haven't seen yet, `RequestsInstrumentor`. We add the [RequestsInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html) in order to enable tracing of HTTP requests made by the [requests](https://docs.python-requests.org/en/latest/index.html) library. In this service, we use the `requests` library to make requests to our backends.
+You might notice that we include one import that we haven't seen yet, `RequestsInstrumentor`. We add the [RequestsInstrumentor](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html) in order to enable tracing of HTTP requests made by the [requests](https://docs.python-requests.org/en/latest/index.html) library. The requests autoinstrumentor adds the current trace/span ID to the HTTP request headers, so that it gets propagated to the target service. In this service, we use the `requests` library to make requests to our backends.
 
 Then we set up the Resource, underneath the imports:
 
