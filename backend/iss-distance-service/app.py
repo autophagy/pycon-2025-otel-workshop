@@ -12,7 +12,12 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.trace import get_tracer_provider, set_tracer_provider, get_current_span, StatusCode
+from opentelemetry.trace import (
+    get_tracer_provider,
+    set_tracer_provider,
+    get_current_span,
+    StatusCode,
+)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.semconv.trace import SpanAttributes
@@ -26,6 +31,7 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 LOGGER = logging.getLogger("iss-distance-service")
 
+
 def setup_metrics(resource: Resource):
     """
     Sets up a metrics reader that exports every 1 second, and assigns it to be the
@@ -34,9 +40,12 @@ def setup_metrics(resource: Resource):
 
     # 1. Set up the metrics and tracing exporter and provider.
     metric_exporter = OTLPMetricExporter(insecure=True)
-    metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=1000)
+    metric_reader = PeriodicExportingMetricReader(
+        metric_exporter, export_interval_millis=1000
+    )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     set_meter_provider(meter_provider)
+
 
 def setup_logging(resource: Resource, logger: logging.Logger):
     """
@@ -56,7 +65,7 @@ def setup_logging(resource: Resource, logger: logging.Logger):
     logger.level = logging.DEBUG
 
 
-def setup_tracing(resource:Resource):
+def setup_tracing(resource: Resource):
     """
     Sets up tracing provider that exports spans as soon as they are resolved, and
     assigns it to be the global trace provider.
@@ -67,6 +76,7 @@ def setup_tracing(resource:Resource):
     trace_provider = TracerProvider(resource=resource)
     trace_provider.add_span_processor(span_processor)
     set_tracer_provider(trace_provider)
+
 
 # 0. Set up an otel resource for the service
 resource = Resource(
@@ -101,6 +111,7 @@ ISS_NOW_URL = "http://api.open-notify.org/iss-now.json"
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 
+
 @dataclass
 class Coordinates:
     latitude: float
@@ -109,25 +120,27 @@ class Coordinates:
 
 @tracer.start_as_current_span("getting-iss-coordinates")
 def get_iss_coordinates() -> Coordinates:
-        r = requests.get(ISS_NOW_URL)
-        # 5. Use the counter for requests to the iss endpoint and add the status code as a field
-        iss_request_counter.add(1, {"response.status": r.status_code})
-        span = get_current_span()
-        span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
-        span.set_attribute(SpanAttributes.HTTP_STATUS_CODE, r.status_code)
-        span.set_attribute(SpanAttributes.HTTP_URL, ISS_NOW_URL)
+    r = requests.get(ISS_NOW_URL)
+    # 5. Use the counter for requests to the iss endpoint and add the status code as a field
+    iss_request_counter.add(1, {"response.status": r.status_code})
+    span = get_current_span()
+    span.set_attribute(SpanAttributes.HTTP_METHOD, "GET")
+    span.set_attribute(SpanAttributes.HTTP_STATUS_CODE, r.status_code)
+    span.set_attribute(SpanAttributes.HTTP_URL, ISS_NOW_URL)
 
-        if r.status_code == 200:
-            position = r.json().get("iss_position")
-            if position:
-                coordinates = Coordinates(float(position.get("latitude")), float(position.get("longitude")))
-                span.set_attribute("iss.position", str(coordinates))
-                return coordinates
+    if r.status_code == 200:
+        position = r.json().get("iss_position")
+        if position:
+            coordinates = Coordinates(
+                float(position.get("latitude")), float(position.get("longitude"))
+            )
+            span.set_attribute("iss.position", str(coordinates))
+            return coordinates
 
-        span.set_status(StatusCode.ERROR)
-        # 2.d add logging when we don't receive a 200 from the ISS endpoint
-        LOGGER.error("request to iss endpoint returned a non-200 response")
-        return Coordinates(0, 0)
+    span.set_status(StatusCode.ERROR)
+    # 2.d add logging when we don't receive a 200 from the ISS endpoint
+    LOGGER.error("request to iss endpoint returned a non-200 response")
+    return Coordinates(0, 0)
 
 
 def calculate_distance(location: Coordinates, iss_location: Coordinates) -> float:
@@ -137,6 +150,7 @@ def calculate_distance(location: Coordinates, iss_location: Coordinates) -> floa
     ).km
     return round(distance, 2)
 
+
 @app.route("/", methods=["GET"])
 def api():
     with tracer.start_as_current_span("calculating-iss-distance") as span:
@@ -145,7 +159,6 @@ def api():
         # 2.e add logging when request received
         LOGGER.info("received request from IP address: %s", request.remote_addr)
 
-
         latitude = request.args.get("latitude")
         longitude = request.args.get("longitude")
 
@@ -153,8 +166,7 @@ def api():
             iss_location = get_iss_coordinates()
             location = Coordinates(float(latitude), float(longitude))
             distance = calculate_distance(location, iss_location)
-            return jsonify({"distance": distance,
-                            "location": asdict(iss_location)})
+            return jsonify({"distance": distance, "location": asdict(iss_location)})
         else:
             span.set_status(StatusCode.ERROR)
             # 2.d add logging if no lat/log provided in request

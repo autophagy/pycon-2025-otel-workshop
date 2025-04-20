@@ -4,12 +4,13 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
+
 @app.route("/", methods=["GET", "POST"])
 def homepage():
     lat = long = dist = location = err = None
 
-    if request.method == 'POST':
-        location = request.form['location']
+    if request.method == "POST":
+        location = request.form["location"]
 
         r = requests.get(app.config["GATEWAY_URL"], params={"location": location})
 
@@ -22,7 +23,14 @@ def homepage():
             err = r.text
             lat = long = dist = location = None
     return (
-        render_template("index.html", latitude=lat, longitude=long, distance=dist, location=location, error=err),
+        render_template(
+            "index.html",
+            latitude=lat,
+            longitude=long,
+            distance=dist,
+            location=location,
+            error=err,
+        ),
         200,
     )
 
